@@ -453,7 +453,7 @@ win_pred_lm <- lm(pct_wins_aggregate ~ payroll_aggregate, mlb_aggregate)
 summary(win_pred_lm)  
 ```
 
-**Rhe coefficient of `payroll_aggregate` is 0.0614. This means for every $1 billion increase in payroll, there is a 6% increase in the percentage of games won.**
+**The coefficient of `payroll_aggregate` is 0.0614. This means for every $1 billion increase in payroll, there is a 6% increase in the percentage of games won.**
 
 **49.4% of the variation in pct_wins_aggregate can be explained by payroll_aggregate **
 
