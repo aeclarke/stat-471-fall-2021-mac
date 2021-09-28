@@ -38,6 +38,7 @@ The collaboration policy is as stated on the Syllabus:
 In accordance with this policy, 
 
 *Please list anyone you discussed this homework with:* 
+Zach Bradlow and Paul Heysch de la Borde
 
 *Please list what external references you consulted (e.g. articles, books, or websites):*
 
@@ -98,18 +99,80 @@ The goal is to learn about the typical trends of bone mineral density during pub
 ## Import (2 points)
 
 - Using `readr`, import the data from the above URL into a tibble called `bmd`. Specify the column types using the `col_types` argument. 
-
 - Print the imported tibble (no need to use `kable`). 
+
+```{r, out.width="75%"}
+bmd <- read_tsv("https://web.stanford.edu/~hastie/ElemStatLearn/datasets/bone.data", col_types = "idfd")
+print(bmd)
+```
 
 ## Explore (10 points)
 
 - To keep things simple, let's ignore the fact that we have repeated measurements on children. To this end, remote the `idnum` column from `bmd`.
 
+```{r, out.width="75%"}
+bmd <- bmd %>% 
+  select(-c("idnum")) #removes idnum column 
+```
+
 - What is the number of boys and girls in this dataset (ignoring the fact that there are repeated measurements)? What are the median ages of these boys and girls?
 
+```{r, out.width="75%"}
+boy_girl <- bmd %>%
+  group_by(gender) %>%  #groups by gender
+  summarise(count = n(), median_age = median(age)) #calculates observations and median age by gender
+
+boy_girl  %>% 
+  kable(format = "latex", row.names = NA,
+      booktabs = TRUE, digits = 2,
+      caption = "Boys and Girls in Sample") %>%
+  kable_styling(position = "center")
+```
+
 - Produce boxplots to compare the distributions of `spnbmd` and `age` between boys and girls (display these as two plots side by side, one for `spnbmd` and one for `age`). Are there apparent differences in either `spnbmd` or `age` between these two groups?
+```{r, out.width="75%"}
+spnbmd_box <- bmd %>%
+  ggplot() + 
+  geom_boxplot(aes(x = gender, y = spnbmd)) + #creates boxplot
+  labs(
+    x = "Gender",
+    y = "Relative Spinal bone mineral density"
+  ) + 
+  ggtitle("Spinal Bone Mineral Density by Gender") + #adds title
+  theme(plot.title = element_text(size = 10, face = "bold")) #formats title 
+
+age_box <- bmd %>%
+  ggplot() + 
+  geom_boxplot(aes(x = gender, y = age)) + #creates boxplot
+  labs(
+    x = "Gender",
+    y = "Age"
+  ) + 
+  ggtitle("Age by Gender") + #adds title 
+  theme(plot.title = element_text(size = 10, face = "bold")) #formats title 
+ 
+#plots grids next to each other 
+plot_grid(spnbmd_box, age_box) 
+```
+**For spinal bone mineral density, the median is approximately equal for boys and girls. While both distibutions are skewed to the left, the male distribution is less skewed. Also, the male distribution has observations that are below -.05, while the female distrubtion does not.**
+
+**The median age for males is slightly higher than the median for females. The box plots suggest that the ages of males are distributed farily normally, while the distribution of ages for females is slightly skewed to the right.**
 
 - Create a scatter plot of `spnbmd` (y axis) versus `age` (x axis), faceting by `gender`. What trends do you see in this data?
+
+```{r, out.width="75%"}
+bmd %>%
+  ggplot() + 
+  geom_point(aes(x = age, y = spnbmd)) + #creates scatter plot 
+  labs(
+    x = "Age",
+    y = "Relative Spinal bone mineral density"
+  ) + 
+  facet_wrap(~ gender) + # split into facets based on age
+  ggtitle("Spinal Bone Mineral Density by Age") + #adds title
+  theme(plot.title = element_text(size = 10, face = "bold")) #formats title 
+```
+**The is not one clear trend. However, spinal bone density appears to peak at around the age of 12.5 for both males and females and then returns to around 0 0 between the ages of 17.5 and 20. Before age 12.5 bone mineral density appears to be increasing while after age 12.5, it appears to be on the decline. This trend is more clearly seen with females, where there appears to be less variation in the data**
 
 ## Model (15 points)
 
@@ -123,35 +186,174 @@ To ensure unbiased assessment of predictive models, let's split the data before 
 
 ```{r}
 set.seed(5) # seed set for reproducibility (DO NOT CHANGE)
+smp_size <- floor(nrow(bmd)*.8)
+train_id <- sample(seq_len(nrow(bmd)), size = smp_size)
+bmd_train <- bmd[train_id, ]
+bmd_test <- bmd[-train_id, ]
 ```
 
 ### Tune
 
 - Since the trends in `spnbmd` look somewhat different for boys than for girls, we might want to fit separate splines to these two groups. Separate `bmd_train` into `bmd_train_male` and `bmd_train_female`, and likewise for `bmd_test`.
 
+```{r}
+bmd_train_male <- bmd_train %>% 
+  filter(gender == "male") # filters for only males
+bmd_train_female <- bmd_train %>% 
+  filter(gender == "female") # filters for only females
+bmd_test_male <- bmd_test %>% 
+  filter(gender == "male") # filters for only males
+bmd_test_female <- bmd_test %>% 
+  filter(gender == "female") # filters for only females
+```
+
 - Using `cross_validate_spline` from Lecture 3, perform 10-fold cross-validation on `bmd_train_male` and `bmd_train_female`, trying degrees of freedom 1,2,...,15. Display the two resulting CV plots side by side.
 
+```{r}
+#source function from lecture 3 
+source("~/Desktop/STAT471/stat-471-fall-2021/functions/cross_validate_spline.R")
+
+#perform cross validation 
+cv_male = cross_validate_spline(bmd_train_male$age, 
+                            bmd_train_male$spnbmd, 
+                            nfolds = 10, #specify 10 fold 
+                            df_values = 1:15) #specify 1-15 df 
+
+cv_female = cross_validate_spline(bmd_train_female$age, 
+                            bmd_train_female$spnbmd, 
+                            nfolds = 10, #specify 10 fold 
+                            df_values = 1:15) #specify 1-15 df
+# plot 2 cv plots
+plot_grid(cv_male$cv_plot, cv_female$cv_plot)
+```
+
 - What are the degrees of freedom values minimizing the CV curve for boys and girls, and what are the values obtained from the one standard error rule?
+```{r}
+#male CV
+print(cv_male$df.min) #value minimizng the CV curve 
+print(cv_male$df.1se) #value from one standard error rule
+
+#female CV
+print(cv_female$df.min) #value minimizng the CV curve 
+print(cv_female$df.1se) #value from one standard error rule
+```
+**For males, 5 df minimizes the CV curve, but 3 df is obtained from the one standard error rule**
+**For females, 8 df minimizes the CV curve, but 3 df is obtained from the one standard error rule**
 
 - For the sake of simplicity, let's use the same degrees of freedom for males as well as females. Define `df.min` to be the maximum of the two `df.min` values for males and females, and define `df.1se` likewise. Add these two spline fits to the scatter plot of `spnbmd` (y axis) versus `age` (x axis), faceting by `gender`.
+```{r}
+#max of df.min for males and females
+df.min <- max(cv_male$df.min, cv_female$df.min) 
+#max of df.1se for males and females 
+df.1se <- max(cv_male$df.1se, cv_female$df.1se)
+
+# Creates split fit 
+bmd_train %>% 
+  ggplot(aes(age, spnbmd)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", 
+              formula = "y ~ splines::ns(x, df = df.min)",
+              aes(colour = "Fit"), se = FALSE) + 
+  scale_colour_manual(values = c("red", "blue")) +
+  theme_bw() + theme(legend.title = element_blank()) +
+  facet_wrap(~gender)
+```
 
 - Given our intuition for what growth curves look like, which of these two values of the degrees of freedom makes more sense?
+**3 degrees of freedom makes the most sense because growth curves an exponential phase, transitonal phase, and plateau phase. Thus, df are needed to represent each phase** 
 
 ### Final fit
 
 - Using the degrees of freedom chosen above, fit final spline models to `bmd_train_male` and `bmd_train_female`. 
+```{r}
+# Creates split fit for each gender with df.min degrees of freedom 
+spline_fit_male = lm(spnbmd ~ splines::ns(age, df = df.min), data = bmd_train_male)
+spline_fit_female = lm(spnbmd ~ splines::ns(age, df = df.min), data = bmd_train_female)
+```
 
 ## Evaluate (6 points)
 
 - Using the final models above, answer the following questions for boys and girls separately: What percent of the variation in `spnbmd` is explained by the spline fit in the training data? What is the training RMSE? What is the test RMSE? Print these three metrics in a nice table.
+```{r}
+#calculates training and test predictions based on model
+y_hat_train = predict(spline_fit_male, newdata = bmd_train_male)
+y_hat_test = predict(spline_fit_male, newdata = bmd_test_male)
+
+#calculates RMSE by taking mean of residuals for train
+validation_error_train = bmd_train_male %>% 
+    cbind(y_hat_train) %>% 
+    summarise(RMSE_train = mean((y_hat_train-spnbmd)^2)) 
+
+#calculates RMSE by taking mean of residuals for test
+validation_error_test = bmd_test_male %>% 
+    cbind(y_hat_test) %>% 
+    summarise(RMSE_test = mean((y_hat_test-spnbmd)^2)) 
+
+#combines train and test error and pull r^2 value from summary
+male_model <- cbind(validation_error_train, validation_error_test) %>%
+  summarise(r_squared = summary(spline_fit_male)$r.squared, RMSE_train, RMSE_test )
+
+#formats chart
+male_model %>% 
+  kable(format = "latex", row.names = NA,
+      booktabs = TRUE, digits = 2,
+      caption = "Traning vs. Test RMSE for Male Spline Fit") %>%
+  kable_styling(position = "center")
+```
+**The male RMSE for the train date is higher than RMSE for test data, which suggests that the model for males does not overfit**
+```{r}
+#calculates training and test predictions based on model
+y_hat_train_fem = predict(spline_fit_female, newdata = bmd_train_female)
+y_hat_test_fem = predict(spline_fit_female, newdata = bmd_test_female)
+
+#calculates RMSE by taking mean of residuals for train
+validation_error_train_fem = bmd_train_female %>% 
+    cbind(y_hat_train_fem) %>% 
+    summarise(RMSE_train = mean((y_hat_train_fem-spnbmd)^2)) 
+
+#calculates RMSE by taking mean of residuals for test
+validation_error_test_fem = bmd_test_female %>% 
+    cbind(y_hat_test_fem) %>% 
+    summarise(RMSE_test = mean((y_hat_test_fem-spnbmd)^2)) 
+
+#combines train and test error and pull r^2 value from summary
+female_model <- cbind(validation_error_train_fem, validation_error_test_fem) %>%
+  summarise(r_squared = summary(spline_fit_female)$r.squared, RMSE_train, RMSE_test)
+
+#formats chart
+female_model %>% 
+  kable(format = "latex", row.names = NA,
+      booktabs = TRUE, digits = 2,
+      caption = "Traning vs. Test RMSE for Female Spline Fit") %>%
+  kable_styling(position = "center")
+```
 
 - How do the training and test errors compare? What does this suggest about the extent of overfitting that has occurred?
+**The female RMSE for the train date is ~40% lower than RMSE for test data, which suggests that the model is overfitting**
 
 ## Interpret (7 points)
 
 - Using the degrees of freedom chosen above, redo the scatter plot with the overlaid spline fits, this time without faceting in order to directly compare the spline fits for boys and girls. Instead of faceting, distinguish the genders by color.
+```{r}
+bmd_train %>% 
+  ggplot(aes(age, spnbmd, color = gender)) + 
+  geom_point() + 
+  # shows spline fit for boys and girls with df.min degrees of freedom
+  geom_smooth(method = "lm", 
+              formula = "y ~ splines::ns(x, df = df.min)", se = FALSE) + 
+  #sets colors to blue and pink
+  scale_colour_manual(values = c("blue", "magenta")) +
+  theme_bw() + theme(legend.title = element_blank()) +
+  labs(
+    x = "Age",
+    y = "Relative Spinal Bone Mineral Density"
+  ) + 
+  ggtitle("Bone Density by Age")  #adds title 
+```
 
 - The splines help us see the trend in the data much more clearly. Eyeballing these fitted curves, answer the following questions. At what ages (approximately) do boys and girls reach the peaks of their growth spurts? At what ages does growth largely level off for boys and girls? Do these seem in the right ballpark?
+
+**Girls rech their peak growth spurts at around age 12 while boys reach the peaks of their growth spurts at around age 14.These numbers seem accurate because they are relatively close to the age each gender reaches puberty at**
 
 # KNN and bias-variance tradeoff (45 points for correctness; 5 points for presentation)
 
@@ -217,6 +419,7 @@ As a second attempt to predict a yield for each tree, you average together last 
 KNN is not a parametric model like linear or logistic regression, so it is a little harder to pin down its degrees of freedom. 
 
 - What happens to the model complexity as $K$ increases? Why?
+**Model complexity increases exponentially** 
 
 - The degrees of freedom for KNN is sometimes considered $n/K$, where $n$ is the training set size. Why might this be the case? [Hint: consider a situation where the data are clumped in groups of $K$.]
 
