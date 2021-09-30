@@ -41,6 +41,9 @@ In accordance with this policy,
 Zach Bradlow and Paul Heysch de la Borde
 
 *Please list what external references you consulted (e.g. articles, books, or websites):*
+https://liangf.wordpress.com/2019/08/18/degree-of-freedom-for-knn/
+https://medium.com/30-days-of-machine-learning/day-3-k-nearest-neighbors-and-bias-variance-tradeoff-75f84d515bdb
+
 
 ## Writeup {-}
 
@@ -154,6 +157,7 @@ age_box <- bmd %>%
 #plots grids next to each other 
 plot_grid(spnbmd_box, age_box) 
 ```
+
 **For spinal bone mineral density, the median is approximately equal for boys and girls. While both distibutions are skewed to the left, the male distribution is less skewed. Also, the male distribution has observations that are below -.05, while the female distrubtion does not.**
 
 **The median age for males is slightly higher than the median for females. The box plots suggest that the ages of males are distributed farily normally, while the distribution of ages for females is slightly skewed to the right.**
@@ -172,6 +176,7 @@ bmd %>%
   ggtitle("Spinal Bone Mineral Density by Age") + #adds title
   theme(plot.title = element_text(size = 10, face = "bold")) #formats title 
 ```
+
 **The is not one clear trend. However, spinal bone density appears to peak at around the age of 12.5 for both males and females and then returns to around 0 0 between the ages of 17.5 and 20. Before age 12.5 bone mineral density appears to be increasing while after age 12.5, it appears to be on the decline. This trend is more clearly seen with females, where there appears to be less variation in the data**
 
 ## Model (15 points)
@@ -182,7 +187,7 @@ There are clearly some trends in this data, but they are somewhat hard to see gi
 
 To ensure unbiased assessment of predictive models, let's split the data before we start modeling it. 
 
-- Split `bmd` into training (80%) and test (20%) sets. Store these in tibbles called `bmd_train` and `bmd_test`, respectively.
+- Split `bmd` into training (80%) and test (20%) sets, using the rows in `train_samples` below for training. Store these in tibbles called `bmd_train` and `bmd_test`, respectively.
 
 ```{r}
 set.seed(5) # seed set for reproducibility (DO NOT CHANGE)
@@ -190,6 +195,8 @@ smp_size <- floor(nrow(bmd)*.8)
 train_id <- sample(seq_len(nrow(bmd)), size = smp_size)
 bmd_train <- bmd[train_id, ]
 bmd_test <- bmd[-train_id, ]
+n = nrow(bmd)
+train_samples = sample(1:n, round(0.8*n))
 ```
 
 ### Tune
@@ -228,6 +235,7 @@ plot_grid(cv_male$cv_plot, cv_female$cv_plot)
 ```
 
 - What are the degrees of freedom values minimizing the CV curve for boys and girls, and what are the values obtained from the one standard error rule?
+
 ```{r}
 #male CV
 print(cv_male$df.min) #value minimizng the CV curve 
@@ -407,10 +415,13 @@ data %>%
 This apple season is right around the corner, and you'd like to predict the yield of each tree. You come up with perhaps the simplest possible prediction rule: predict this year's yield for any given tree based on last year's yield from that same tree. Without doing any programming, answer the following questions:
 
 - What is the expected training error of such a rule?
+**Training error will be zero because the model has essentially fit every data point to itself** 
 
 - Averaged across all trees, what is the squared bias, variance, and ETE of this prediction rule? 
+**Squared bias is 0. Variance is (10+20+30 DID NOT FINISH THIS ONE DID NOT FINISH THIS ONE ALERT** 
 
 - Why is this not the best possible prediction rule? 
+**While it works well on the training data set, it is not useful in predicting on the test data set because the values of each individual point are not known. Thus, the model is generally useless in making predicitons.** 
 
 ## K-nearest neighbors regression (conceptual) (15 points)
 
@@ -419,13 +430,16 @@ As a second attempt to predict a yield for each tree, you average together last 
 KNN is not a parametric model like linear or logistic regression, so it is a little harder to pin down its degrees of freedom. 
 
 - What happens to the model complexity as $K$ increases? Why?
-**Model complexity increases exponentially** 
+**Model complexity is how close the mdoel fits the traning data. Model complexity increases exponentially because for every 1 unit increase in K, one more tree's yield is used in the computation of each tree's yield. This means 400 more trees are used in the computation of the yields for all 400 trees. If K was increased by 5 units, 2000 more trees would be used in the computation.  ** 
 
 - The degrees of freedom for KNN is sometimes considered $n/K$, where $n$ is the training set size. Why might this be the case? [Hint: consider a situation where the data are clumped in groups of $K$.]
+**Since the predicted value is equal to the average of K y-values and the sample point must be one of the included y-values, it makes sense that df = n/K. When K = n, the model will give just one prediction, since every data point in the cluster is averaged, which is the same as having just one parameter. When K = 1, the model outputs n different predicitons, which is the same as a model with n predictions.** 
 
 - Conceptually, why might increasing $K$ tend to improve the prediction rule? What does this have to do with the bias-variance tradeoff?
+**Larger K values tend to improve the prediction rule because they will have smoother decision boundaries, which means lower variance but increased bias. On the extreme side, if K = n, the model will predict the same y-value for every tree, which would give a variance of 0 but have high bias ** 
 
 - Conceptually, why might increasing $K$ tend to worsen the prediction rule? What does this have to do with the bias-variance tradeoff?
+**Bias is the difference between the true label and the prediction, while variance is the expectation of the squared deviation of a random variable from its mean. Therefore, increasing K would reduce variance since predictions would become closer to each other. However, it would increase bias because the model now has a higher potential to overfit and predict values that are far from their true value. Therefore, when K increases, the training error will increase  (which increases bias), but the test error may decrease at the same time (which decreases variance). ** 
 
 ## K-nearest neighbors regression (simulation) (15 points)
 
@@ -509,11 +523,42 @@ overall_results %>%
 ```
 
 - Based on Figure \@ref(fig:knn-bias-variance), what is the optimal value of `K`? 
+```{r}
+#identifies which K has the highest ETE 
+overall_results$K[which.max(overall_results$expected_test_error)]
+```
+**The optimal value of K is 10 because ETE is minimized when K=10**
 
 - We are used to the bias decreasing and the variance increasing when going from left to right in the plot. Here, the trend seems to be reversed. Why is this the case? 
+**When K increases, the predicted y-values get closer to each other because more points in the cluster are used to compute the y-value, which is an average of the K-nearest points. Therefore, when K increases, the training error will increases because the y-values are further away from their true values (which increases bias), but variance decreases because the predicted points become closer to each other. In fact, if K=n, mean variance will be 0 for the train data set**
 
 - The squared bias has a strange bump between `K` = 1 and `K` = 5, increasing from `K` = 1 to `K` = 2 but then decreasing from `K` = 2 to `K` = 5. Why does this bump occur? [Hint: Think about the rectangular grid configuration of the trees. So for a given tree, the closest tree is itself, and then the next closest four trees are the ones that are one tree up, down, left, and right from it.]
+**When K=2, one tree out of the four surrounding point is randomly selected to be averaged with y-value of the tree itself. If the surrounding data point that is most different from the point we are trying to pick is chosen, bias will increase. In constrastm when 3-5 data points are averaged to predict the y-value, the difference between the selected data point and the data points used for prediction decreaes.** 
 
 - The data frame `training_results_summary` contains the bias and variance for every tree in the orchard, for every value of `K`. Which tree and which value of `K` gives the overall highest absolute bias? Does the sign of the bias make sense? Why do this particular tree and this particular value of `K` give us the largest absolute bias? 
 
+```{r}
+#identifies which row has the highest absolute sq bias 
+training_results_summary[which.max(abs(overall_results$mean_sq_bias)), ]
+```
+**The tree located at (0,130) when K = 1 gives the largest absolute bias. The bias is -0.793. The sign of the bias is negative because the predicted y-value was lower than the actual y-value. This particular tree has the largest bias because I DO NOT KNOW I DO NOT KNOW ** 
+
 - Redo the bias-variance plot above, this time putting `df = n/K` on the x-axis. What do we notice about the variance as a function of `df`? Derive a formula for the KNN variance and superimpose this formula onto the plot as a dashed curve. Do these two variance curves match? [Hint: To derive the KNN variance, focus first on the prediction of a single tree. Recall the facts that the variance of the sum of independent random variables is the sum of their variances, and that the variance of a constant multiple of a random variable is the square of that constant times its variance.]
+
+```{r knn-bias-variance-df, fig.width = 5, fig.height = 3, out.width = "100%", fig.align='center', fig.cap = "Bias-variance trade-off for KNN regression.", echo = FALSE}
+# plot the bias, variance, and ETE based on df = n/K
+overall_results %>% 
+  pivot_longer(-K, names_to = "metric", values_to = "Error") %>%
+  mutate(df = n/K,      #add another for df = n/K
+         metric = fct_recode(metric,
+                             "Expected test error" = "expected_test_error",
+                             "Mean squared bias" = "mean_sq_bias",
+                             "Mean variance" = "mean_variance")) %>%
+  ggplot(aes(x = df, y = Error, colour = metric)) + #set x equal to df 
+  geom_line() + 
+  geom_point() + 
+  theme_bw() + 
+  theme(legend.title = element_blank())
+```
+
+**Yes, the two curves match. Since df = n/K, when the df is approaching 0, K is increasing and when df is increasing, K is decreasing. We see that increasing K increases bias and the expected test error. Also, when K increases, the mean variance approaches zero beacuse K = n. Thus, all estimations are the same. When K decreases, we see ETE and bias increase. As K decereases, bias decreases because K approaches 1.** 
