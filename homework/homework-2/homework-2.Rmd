@@ -562,4 +562,6 @@ overall_results %>%
   theme_bw() + 
   theme(legend.title = element_blank())
 ```
+\newpage 
+
 **Variance is a linear function of df (n/K), and variance increases as n increases or as K decreases. When predicting the yield for a single tree, you take the average of that tree's K closest neighbors. Since the variance of the sum of independent random variables is the sum of their variances, increases K reduces variance and decreasing n reduces variance. 1/K squared times the variance of the yields of the K-closest trees tells us that variance is equal to epsilon ove the K-closest trees. This is equal to K times 16 because we were told that epsilon has a mean of 0 and a standard deviation of 4. Our variance is given by 1/K-squared times K times 16 which is equal to 16/K. Since n = 441, the formula for variance of the graph above is equal to 16K/441 and equal to 16 times K/n and the equivalent to 16 tmes 1/df. Therefore, superimposing this curve on \@ref(fig:knn-bias-variance-df), it is clear that both curves match.**
