@@ -31,6 +31,7 @@ The collaboration policy is as stated on the Syllabus:
 In accordance with this policy, 
 
 *Please list anyone you discussed this homework with:* 
+Zach Bradlow, Paul Heysch de la Borde, and Sarah Hu
 
 *Please list what external references you consulted (e.g. articles, books, or websites):*
 
@@ -63,7 +64,7 @@ library(tidyverse)
 
 We'll also need the `plot_glmnet` function from Unit 3 Lecture 3:
 ```{r}
-# install.packages("scales")              # dependency of plot_glmnet
+#install.packages("scales")              # dependency of plot_glmnet
 source("../../functions/plot_glmnet.R")
 ```
 
@@ -93,19 +94,72 @@ The data contain the following eight variables for each individual:
 ## Data import and exploration
 
 i. Import the data from `stat-471-fall-2021/data/Framingham.dat` into a tibble called `hd_data`, specifying all columns to be integers except `SEX`, which should be a factor. Rename `Heart Disease?` to `HD`, and remove any rows containing `NA` values using `na.omit()`.
+```{r, out.width="75%"}
+hd_data <- read_delim("~/Desktop/STAT471/stat-471-fall-2021/data/Framingham.dat", col_types = "iifiiii")
+hd_data <- hd_data %>%
+  rename("HD" = "Heart Disease?")
+hd_data <- na.omit(hd_data)
+```
 
 ii. What is the number of people in this data? What percentage of them have heart disease?
+```{r HD-size-percent, out.width="75%"}
+hd_data %>% 
+  summarize(count = n(), mean(HD)) %>%
+  rename(c("Number of People" = "count", "Percent with Heart Disease" = "mean(HD)")) %>%
+  kable(format = "latex", row.names = NA,
+      booktabs = TRUE, digits = 2,
+      caption = "Sample Size and Percent with Heart Disease") %>%
+  kable_styling(position = "center")
+```
 
 iii. Split `hd_data` into training (80%) and test (20%) sets, using the rows in `train_samples` below for training. Store these in tibbles called `hd_train` and `hd_test`, respectively.
 ```{r}
 set.seed(5) # seed set for reproducibility (DO NOT CHANGE)
 n = nrow(hd_data)
 train_samples = sample(1:n, round(0.8*n))
+hd_train = hd_data[train_samples,]
+hd_test = hd_data[-train_samples,]
 ```
 
 iv. Display the age distribution in `hd_train` with a plot. What is the median age? 
+```{r age_distribution, fig.align='center', fig.width = 9, fig.height = 5, fig.cap = "Histogram of age distribution of sample size "}
+age_box <- hd_train %>%
+  ggplot(aes(AGE)) + 
+  geom_histogram(binwidth = 1, bins=20, fill="black", col="grey") +
+  labs(x = "Age", y= "Count", size = 12) +
+  ggtitle("Distribution of Age for Training Set") + #adds title 
+  theme(plot.title = element_text(size = 15, face = "bold")) #formats title
+  
+age_box #print box plot
+```
+```{r median-age-train}
+hd_train %>%
+  summarize(median(AGE)) %>%
+  rename("Median Age" = "median(AGE)") %>% 
+  kable(format = "latex", row.names = NA,
+      booktabs = TRUE, digits = 2,
+      caption = "Median Age Sample Size") %>%
+  kable_styling(position = "center")
+```
+
+**The median age of the Traning is 52**
 
 v. Use a plot to explore the relationship between heart disease and systolic blood pressure in `hd_train`. What does this plot suggest?
+
+```{r heart-disease-blood-pressure-lm-fit, fig.align='center', out.width = "85%", fig.cap = "Scatterplot of heart disease by systolic blood pressure with a linear regression fit. "}
+hd_blood_pressure <- hd_train %>% 
+  ggplot(aes(x = SBP, y = HD))+
+  geom_point() +
+  geom_smooth(method = "lm",
+              formula = "y~x",
+              se = FALSE) +
+  xlab("Systolic Blood Pressure") +
+  ylab("Prob(Heart disease=1)") + 
+  theme_bw()
+
+hd_blood_pressure
+```
+**The plot suggest that as systolic blood pressure increases the probability of heart disease also increases**
 
 ## Univariate logistic regression
 
@@ -116,12 +170,31 @@ In this part, we will study the relationship of heart disease with systolic bloo
 Let's take a look under the hood of logistic regression using a very small subset of the data.
 
 i. Define and print a new data frame called `hd_train_subset` containing `HD` and `SBP` for the individuals in `hd_train` who smoke (exactly) 40 cigarettes per week and have a cholesterol of at least 260.
+```{r median-age-train}
+hd_train_subset <- hd_train %>% 
+  filter(CIG == 40, CHOL >= 260)
+
+hd_train_subset %>% 
+  kable(format = "latex", row.names = NA,
+      booktabs = TRUE, digits = 2,
+      caption = "Subset of training data where smoke 40 cigarettes per week and have a cholesterol of at least
+      260. ") %>%
+  kable_styling(position = "center")
+```
 
 ii. Write down the logistic regression likelihood function using the observations in `hd_train_subset`.
+## DID NOT DO DID NOT DO 
 
 iii. Find the MLE based on this subset using `glm()`. Given a value of `SBP`, what is the estimated probability $\mathbb P[\text{HD}=1|\text{SBP}]$?
+```{r}
+glm_fit_subset = glm(HD ~ SBP, 
+              family = "binomial",
+              data = hd_train_subset)
+summary(glm_fit_subset)
+```
 
 iv. Briefly explain how the fitted coefficients in part iii were obtained from the formula in part ii. 
+## DID NOT DO DID NOT DO '
 
 v. To illustrate this, fix the intercept at its fitted value and define the likelihood as a function of $\beta_1$. Then, plot this likelihood in the range [0, 0.1], adding a vertical line at the fitted value of $\beta_1$. What do we see in this plot? [Hints: Define the likelihood as a function in R via `likelihood = function(beta_1)(???)`. Use `stat_function()` to plot it.]
 
@@ -129,15 +202,98 @@ v. To illustrate this, fix the intercept at its fitted value and define the like
 
 i. Run a univariate logistic regression of `HD` on `SBP` using the full training data `hd_train`. According to the estimated coefficient, how do the odds of heart disease change when `SBP` increases by 1? 
 
+```{r}
+glm_fit_train_uni = glm(HD ~ SBP, 
+                family = "binomial",
+                data = hd_train)
+coef(glm_fit_train_uni)
+```
+**Increasing systolic blood pressure by 1 while controlling for the other features tends to (additively) increase the log-odds of heart disease by 1.66%*β1. Additionally, increasing SBP by 1 while controlling for the other features tends to (multiplicatively) increase the odds of heart disease by e^0.0166*β1.**
+
 ii. Plot the logistic regression fit along with a scatter plot of the data. Use `geom_jitter()` instead of `geom_point()` to better visualize the data. Based on the plot, roughly what is the estimated probability of heart disease for someone with `SBP` = 100?
+
+```{r heart-disease-blood-pressure-univariate-logicistic-regression, fig.align='center', out.width = "85%", fig.cap = "Scatterplot of heart disease by systolic blood pressure with a univariate logistic regression fit. "}
+hd_blood_pressure <- hd_train %>% 
+  ggplot(aes(x = SBP, y = HD))+
+  geom_jitter(height = .05) +
+  geom_smooth(method = "glm",
+              formula = "y~x",
+              method.args = list(family = "binomial"),
+              se = FALSE) +
+  xlab("Systolic Blood Pressure") +
+  ylab("Prob(Heart disease=1)") + 
+  theme_bw()
+
+hd_blood_pressure
+```
+**Based on the plot, the estimated probability of heart disease for someone with `SBP` = 100 is 12%.**
 
 ## Multiple logistic regression
 
 i. Run a multiple logistic regression of `HD` on all of the other variables in the data. Other things being equal, do the estimated coefficient suggest that males are more or less prone to heart disease? Other things being equal, what impact does an increase in `AGE` by 10 years have on the odds of heart disease (according to the estimated coefficients)?
+```{r multiple-glm}
+glm_fit_train = glm(HD ~ (.), 
+                family = "binomial",
+                data = hd_train)
+coef(glm_fit_train)
+```
+**The estimated coefficent suggests men are more likely to to have heart disease. If the binary categorical variable for sex is equal to female, the log-odds of default decreases by 96.813%.Therefore, changing gender to female from male while controlling for the other features tends to (additively) decrease the log-odds of heart disease by 96.813% and tends to (multiplicatively) change the odds of heart disease by e^-.96813** 
+
+**Increasing age by 10, will increase the odds of heart disease by e^0.06151*10**
 
 ii. Mary is a patient with the following readings: `AGE=50, SEX=FEMALE, SBP=110, DBP=80, CHOL=180, FRW=105, CIG=0`. According to the fitted model, what is the estimated probability Mary has heart disease? 
+```{r}
+mary <- tibble(AGE = 50, SEX = "FEMALE", SBP = 110, DBP = 80, CHOL = 180, FRW = 105, CIG = 0)
+mary_predict <- predict(glm_fit_train, 
+        newdata = mary,
+        type = "response")  # to get output on probability scale
+mary_predict 
+```
+**The esimtated probability Mary has heart disease is 4.96%**
 
 iii. What are the misclassification rate, false positive rate, and false negative rate of the logistic regression classifier (based on the probability threshold of 0.5) on `hd_test`? Print these in a nice table. Plot the ROC curve, and add a red point to the plot corresponding to the threshold of 0.5 (recalling that the true positive rate is one minus the false negative rate). What is the AUC? How does it compare to that of a classifier that guesses randomly?
+
+
+```{r}
+thresh = 0.5 
+fitted_probabilities = predict(glm_fit_train, 
+        newdata = hd_test, 
+        type = "response")                # to get output on probability scale
+predictions = as.numeric(fitted_probabilities > 0.5)
+
+# add predictions to the tibble
+hd_test_misclass = hd_test %>% 
+  mutate(predicted_heart_disease = predictions) %>%
+# calculate misclassification rate
+  summarise(Misclassification_Rate = mean(HD != predicted_heart_disease)) 
+False_Positive = mean(predicted_heart_disease)
+
+hd_test_pos_neg = hd_test %>% 
+  mutate(predicted_heart_disease = predictions) %>%
+  select(HD, predicted_heart_disease) %>%
+  table()
+
+roc_data = roc(hd_test %>% pull(HD), 
+               fitted_probabilities) 
+
+tibble(FPR = 1-roc_data$specificities,
+       TPR = roc_data$sensitivities) %>%
+  ggplot(aes(x = FPR, y = TPR)) + 
+  geom_line() + 
+  geom_abline(slope = 1, linetype = "dashed") +
+  theme_bw()
+
+# print the AUC
+roc_data$auc
+```
+To get a fuller picture, let's calculate the confusion matrix:
+```{r}
+default_test %>% 
+  select(default, predicted_default) %>%
+  table()
+```
+
+
 
 # College Applications
 
